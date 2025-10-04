@@ -1,0 +1,37 @@
+{
+  "name": "delphi-nft-ticketing",
+  "version": "1.0.0",
+  "description": "High-performance NFT ticketing system on Monad blockchain",
+  "main": "index.js",
+  "scripts": {
+    "ac": "node scripts/auto-commit.mjs",
+    "postac": "git push origin HEAD",
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "test": "npx hardhat test",
+    "deploy": "npx hardhat run scripts/deploy.js --network monad",
+    "compile": "npx hardhat compile",
+    "clean": "npx hardhat clean",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [
+    "nft",
+    "ticketing",
+    "monad",
+    "blockchain",
+    "erc-1155",
+    "parallel-execution"
+  ],
+  "author": "Delphi Team",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "prettier": "^3.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
