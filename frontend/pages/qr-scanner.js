@@ -1,12 +1,12 @@
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { config } from '../utils/web3'
-import OrganizerPanel from '../components/OrganizerPanel'
+import QRScanner from '../components/QRScanner'
 import Link from 'next/link'
 
 const queryClient = new QueryClient()
 
-export default function OrganizerPage() {
+export default function QRScannerPage() {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
@@ -20,7 +20,7 @@ export default function OrganizerPage() {
                     Delphi
                   </Link>
                   <span className="text-gray-400">|</span>
-                  <span className="text-gray-600">Organizer Panel</span>
+                  <span className="text-gray-600">QR Scanner</span>
                 </div>
                 
                 <div className="flex items-center space-x-4">
@@ -31,18 +31,18 @@ export default function OrganizerPage() {
                     Dashboard
                   </Link>
                   <Link 
-                    href="/qr-scanner"
+                    href="/organizer"
                     className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100"
                   >
-                    QR Scanner
+                    Organizer
                   </Link>
                 </div>
               </div>
             </div>
           </nav>
 
-          {/* Organizer Content */}
-          <OrganizerPanel />
+          {/* QR Scanner Content */}
+          <QRScanner />
         </div>
       </QueryClientProvider>
     </WagmiProvider>

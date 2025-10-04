@@ -1,240 +1,253 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useWeb3 } from '../utils/web3';
+'use client'
 
-const QRScanner = () => {
-  const { account, provider, signer } = useWeb3();
-  const [isScanning, setIsScanning] = useState(false);
-  const [scannedData, setScannedData] = useState(null);
-  const [scanResult, setScanResult] = useState(null);
-  const [error, setError] = useState(null);
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
+import { useState, useEffect } from 'react'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { CONTRACT_ADDRESSES, SALE_MANAGER_ABI, formatTokenId, parseTokenId } from '../utils/web3'
+import QRCode from 'qrcode.react'
 
-  useEffect(() => {
-    return () => {
-      // Cleanup camera stream
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
+export default function QRScanner() {
+  const { address, isConnected } = useAccount()
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  const startScanning = async () => {
-    try {
-      setError(null);
-      setIsScanning(true);
-      
-      // Request camera access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' } // Use back camera on mobile
-      });
-      
-      streamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      
-      // TODO: Implement QR code scanning logic
-      // This would use a library like jsQR or qr-scanner
-      // to detect and decode QR codes from the video stream
-      
-      console.log('QR Scanner started');
-      
-    } catch (err) {
-      console.error('Error starting QR scanner:', err);
-      setError('Failed to access camera. Please check permissions.');
-      setIsScanning(false);
+  // State
+  const [qrData, setQrData] = useState('')
+  const [scannedData, setScannedData] = useState('')
+  const [isScanning, setIsScanning] = useState(false)
+  const [checkInResult, setCheckInResult] = useState(null)
+
+  // Generate QR code for a ticket
+  const generateQRCode = (tokenId, eventId, seatSerial) => {
+    const qrData = {
+      tokenId: tokenId.toString(),
+      eventId: eventId,
+      seatSerial: seatSerial,
+      timestamp: Date.now(),
+      signature: null // V2'de signature eklenebilir
     }
-  };
-
-  const stopScanning = () => {
-    setIsScanning(false);
     
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  };
-
-  const handleQRCodeDetected = async (qrData) => {
-    try {
-      setScannedData(qrData);
-      setError(null);
-      
-      // TODO: Implement QR code validation and check-in logic
-      // This would:
-      // 1. Parse the QR code data to extract ticket information
-      // 2. Validate the ticket with the smart contract
-      // 3. Process the check-in if valid
-      
-      console.log('QR Code detected:', qrData);
-      
-      // Simulate check-in process
-      const mockResult = {
-        success: true,
-        ticketId: qrData,
-        eventName: "Monad Blockchain Conference 2024",
-        seatNumber: "A-101",
-        message: "Check-in successful!"
-      };
-      
-      setScanResult(mockResult);
-      
-      // Stop scanning after successful check-in
-      stopScanning();
-      
-    } catch (err) {
-      console.error('Error processing QR code:', err);
-      setError('Failed to process QR code. Please try again.');
-    }
-  };
-
-  const handleManualEntry = () => {
-    const ticketId = prompt('Enter ticket ID manually:');
-    if (ticketId) {
-      handleQRCodeDetected(ticketId);
-    }
-  };
-
-  const resetScanner = () => {
-    setScannedData(null);
-    setScanResult(null);
-    setError(null);
-  };
-
-  if (!account) {
-    return (
-      <div className="qr-scanner">
-        <div className="connect-wallet">
-          <h2>Connect Your Wallet</h2>
-          <p>Please connect your wallet to access the QR scanner</p>
-        </div>
-      </div>
-    );
+    setQrData(JSON.stringify(qrData))
   }
 
+  // Simulate QR code generation for demo
+  const handleGenerateQR = () => {
+    const eventId = 1
+    const seatSerial = 1
+    const tokenId = formatTokenId(eventId, seatSerial)
+    generateQRCode(tokenId, eventId, seatSerial)
+  }
+
+  // Simulate QR code scanning
+  const handleScanQR = () => {
+    if (!qrData) {
+      alert('Please generate a QR code first')
+      return
+    }
+    
+    setIsScanning(true)
+    setScannedData(qrData)
+    
+    // Simulate scanning delay
+    setTimeout(() => {
+      setIsScanning(false)
+    }, 1000)
+  }
+
+  // Check-in function
+  const handleCheckIn = async () => {
+    if (!isConnected) {
+      alert('Please connect your wallet first')
+      return
+    }
+
+    if (!scannedData) {
+      alert('Please scan a QR code first')
+      return
+    }
+
+    try {
+      const qrData = JSON.parse(scannedData)
+      const tokenId = BigInt(qrData.tokenId)
+      
+      await writeContract({
+        address: CONTRACT_ADDRESSES.SALE_MANAGER,
+        abi: SALE_MANAGER_ABI,
+        functionName: 'checkIn',
+        args: [tokenId],
+      })
+    } catch (error) {
+      console.error('Check-in error:', error)
+    }
+  }
+
+  // Parse scanned data
+  const parsedData = scannedData ? JSON.parse(scannedData) : null
+
   return (
-    <div className="qr-scanner">
-      <div className="scanner-header">
-        <h1>QR Code Scanner</h1>
-        <p>Scan ticket QR codes for check-in</p>
-      </div>
-
-      {!isScanning && !scanResult && (
-        <div className="scanner-controls">
-          <button 
-            className="btn-primary"
-            onClick={startScanning}
-          >
-            Start Scanning
-          </button>
-          <button 
-            className="btn-secondary"
-            onClick={handleManualEntry}
-          >
-            Manual Entry
-          </button>
-        </div>
-      )}
-
-      {isScanning && (
-        <div className="scanner-view">
-          <div className="camera-container">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className="camera-feed"
-            />
-            <div className="scan-overlay">
-              <div className="scan-frame"></div>
-              <p>Position QR code within the frame</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">QR Code Scanner</h1>
           
-          <div className="scanner-actions">
-            <button 
-              className="btn-warning"
-              onClick={stopScanning}
-            >
-              Stop Scanning
-            </button>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="error">
-          <p>{error}</p>
-          <button onClick={resetScanner}>Try Again</button>
-        </div>
-      )}
-
-      {scanResult && (
-        <div className="scan-result">
-          <div className={`result-card ${scanResult.success ? 'success' : 'error'}`}>
-            <h3>{scanResult.success ? 'Check-in Successful!' : 'Check-in Failed'}</h3>
-            
-            {scanResult.success ? (
-              <div className="success-details">
-                <div className="detail">
-                  <label>Event:</label>
-                  <span>{scanResult.eventName}</span>
-                </div>
-                <div className="detail">
-                  <label>Seat:</label>
-                  <span>{scanResult.seatNumber}</span>
-                </div>
-                <div className="detail">
-                  <label>Ticket ID:</label>
-                  <span className="ticket-id">{scanResult.ticketId}</span>
-                </div>
-                <p className="success-message">{scanResult.message}</p>
-              </div>
-            ) : (
-              <div className="error-details">
-                <p>{scanResult.message}</p>
-              </div>
-            )}
-            
-            <div className="result-actions">
-              <button 
-                className="btn-primary"
-                onClick={resetScanner}
-              >
-                Scan Another Ticket
+          {!isConnected ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600 mb-4">Please connect your wallet to continue</p>
+              <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                Connect Wallet
               </button>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* QR Code Generation */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h2 className="text-xl font-semibold mb-4">Generate QR Code</h2>
+                
+                <div className="space-y-4">
+                  <button
+                    onClick={handleGenerateQR}
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
+                  >
+                    Generate Demo QR Code
+                  </button>
+                  
+                  {qrData && (
+                    <div className="text-center">
+                      <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block">
+                        <QRCode
+                          value={qrData}
+                          size={256}
+                          level="M"
+                          includeMargin={true}
+                        />
+                      </div>
+                      <p className="text-sm text-gray-600 mt-2">
+                        Scan this QR code to test check-in
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* QR Code Scanning */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h2 className="text-xl font-semibold mb-4">Scan QR Code</h2>
+                
+                <div className="space-y-4">
+                  <button
+                    onClick={handleScanQR}
+                    disabled={!qrData}
+                    className={`w-full py-2 px-4 rounded-lg ${
+                      qrData
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isScanning ? 'Scanning...' : 'Scan QR Code'}
+                  </button>
+                  
+                  {scannedData && (
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <h3 className="font-semibold text-gray-900 mb-2">Scanned Data:</h3>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-gray-600">Token ID:</span>
+                          <span className="ml-2 font-mono">{parsedData?.tokenId}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Event ID:</span>
+                          <span className="ml-2">{parsedData?.eventId}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Seat Serial:</span>
+                          <span className="ml-2">{parsedData?.seatSerial}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Timestamp:</span>
+                          <span className="ml-2">
+                            {parsedData?.timestamp ? new Date(parsedData.timestamp).toLocaleString() : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Check-in Section */}
+          {scannedData && (
+            <div className="mt-8 bg-blue-50 rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">Check-in Ticket</h2>
+              
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-lg border border-blue-200">
+                  <h3 className="font-semibold text-blue-900 mb-2">Ticket Information</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-blue-700">Event ID:</span>
+                      <span className="ml-2 text-blue-900">{parsedData?.eventId}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Seat Serial:</span>
+                      <span className="ml-2 text-blue-900">{parsedData?.seatSerial}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Token ID:</span>
+                      <span className="ml-2 text-blue-900 font-mono text-xs">{parsedData?.tokenId}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Generated:</span>
+                      <span className="ml-2 text-blue-900">
+                        {parsedData?.timestamp ? new Date(parsedData.timestamp).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleCheckIn}
+                  disabled={isPending || isConfirming}
+                  className={`w-full py-3 px-4 rounded-lg font-medium ${
+                    !isPending && !isConfirming
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {isPending ? 'Confirming...' : isConfirming ? 'Checking In...' : 'Check-in Ticket'}
+                </button>
+
+                {/* Status Messages */}
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700">Error: {error.message}</p>
+                  </div>
+                )}
+
+                {isConfirmed && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-700">Ticket checked in successfully!</p>
+                    <p className="text-xs text-green-600">Transaction: {hash}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Instructions */}
+          <div className="mt-8 bg-yellow-50 rounded-lg p-6">
+            <h3 className="font-semibold text-yellow-900 mb-2">How to Use</h3>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-yellow-800">
+              <li>Generate a QR code for a ticket</li>
+              <li>Scan the QR code to extract ticket information</li>
+              <li>Click "Check-in Ticket" to mark the ticket as used</li>
+              <li>The transaction will be recorded on the blockchain</li>
+            </ol>
           </div>
         </div>
-      )}
-
-      {scannedData && !scanResult && (
-        <div className="processing">
-          <p>Processing QR code...</p>
-          <div className="spinner"></div>
-        </div>
-      )}
-
-      <div className="scanner-info">
-        <h3>How to use:</h3>
-        <ol>
-          <li>Click "Start Scanning" to activate the camera</li>
-          <li>Position the ticket QR code within the scanning frame</li>
-          <li>Wait for the system to process the check-in</li>
-          <li>View the check-in result</li>
-        </ol>
-        
-        <h3>Tips:</h3>
-        <ul>
-          <li>Ensure good lighting for better QR code detection</li>
-          <li>Hold the ticket steady within the frame</li>
-          <li>Use "Manual Entry" if the camera isn't working</li>
-        </ul>
       </div>
     </div>
-  );
-};
-
-export default QRScanner;
+  )
+}

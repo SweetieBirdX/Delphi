@@ -1,144 +1,271 @@
-import React, { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
-import { useWeb3 } from '../utils/web3';
+'use client'
 
-const Dashboard = () => {
-  const { account, provider, signer } = useWeb3();
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+import { useState, useEffect } from 'react'
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { CONTRACT_ADDRESSES, SALE_MANAGER_ABI, TICKET_NFT_ABI, formatEther, parseEther } from '../utils/web3'
 
-  useEffect(() => {
-    if (account && provider) {
-      loadUserTickets();
+export default function Dashboard() {
+  const { address, isConnected } = useAccount()
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  })
+
+  // State
+  const [selectedEventId, setSelectedEventId] = useState(1)
+  const [mintAmount, setMintAmount] = useState(1)
+  const [userTickets, setUserTickets] = useState([])
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false)
+
+  // Mock events data (in real app, this would come from contract)
+  const events = [
+    {
+      id: 1,
+      name: "Monad Blockchain Conference 2024",
+      description: "The future of blockchain technology",
+      date: "2024-12-15",
+      location: "San Francisco, CA",
+      price: "0.01",
+      cap: 1000,
+      sold: 150
+    },
+    {
+      id: 2,
+      name: "NFT Art Gallery Opening",
+      description: "Digital art exhibition",
+      date: "2024-12-20",
+      location: "New York, NY",
+      price: "0.005",
+      cap: 500,
+      sold: 75
     }
-  }, [account, provider]);
+  ]
 
+  // Get sale info
+  const { data: saleInfo } = useReadContract({
+    address: CONTRACT_ADDRESSES.SALE_MANAGER,
+    abi: SALE_MANAGER_ABI,
+    functionName: 'getSaleInfo',
+    args: [selectedEventId],
+  })
+
+  // Load user tickets
   const loadUserTickets = async () => {
+    if (!address || !isConnected) return
+    
+    setIsLoadingTickets(true)
     try {
-      setLoading(true);
-      setError(null);
-      
-      // TODO: Implement ticket loading logic
-      // This would query the TicketNFT contract for user's tickets
-      // and decode the metadata
-      
-      console.log('Loading tickets for account:', account);
-      
-      // Placeholder data
-      setTickets([
+      // In a real implementation, you would query the contract for user's tickets
+      // For now, we'll use mock data
+      const mockTickets = [
         {
-          id: 1,
-          eventName: "Monad Blockchain Conference 2024",
-          seatNumber: "A-101",
-          date: "2024-12-15",
-          location: "San Francisco, CA",
-          qrCode: "placeholder-qr-code",
+          tokenId: (selectedEventId << 128) | 1,
+          eventId: selectedEventId,
+          seatSerial: 1,
+          eventName: events.find(e => e.id === selectedEventId)?.name || 'Unknown Event',
           used: false
         }
-      ]);
-      
-    } catch (err) {
-      console.error('Error loading tickets:', err);
-      setError('Failed to load tickets');
+      ]
+      setUserTickets(mockTickets)
+    } catch (error) {
+      console.error('Error loading tickets:', error)
     } finally {
-      setLoading(false);
+      setIsLoadingTickets(false)
     }
-  };
-
-  const generateQRCode = (ticketId) => {
-    // TODO: Implement QR code generation
-    // This would generate a QR code containing the ticket ID
-    // for check-in purposes
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${ticketId}`;
-  };
-
-  if (!account) {
-    return (
-      <div className="dashboard">
-        <div className="connect-wallet">
-          <h2>Connect Your Wallet</h2>
-          <p>Please connect your wallet to view your tickets</p>
-        </div>
-      </div>
-    );
   }
 
+  useEffect(() => {
+    loadUserTickets()
+  }, [address, isConnected, selectedEventId])
+
+  // Mint function
+  const handleMint = async () => {
+    if (!isConnected) {
+      alert('Please connect your wallet first')
+      return
+    }
+
+    try {
+      const selectedEvent = events.find(e => e.id === selectedEventId)
+      if (!selectedEvent) return
+
+      const totalCost = parseEther(selectedEvent.price) * BigInt(mintAmount)
+      
+      await writeContract({
+        address: CONTRACT_ADDRESSES.SALE_MANAGER,
+        abi: SALE_MANAGER_ABI,
+        functionName: 'mint',
+        args: [selectedEventId, mintAmount],
+        value: totalCost,
+      })
+    } catch (error) {
+      console.error('Mint error:', error)
+    }
+  }
+
+  // Check if user can mint
+  const canMint = saleInfo && saleInfo.active && 
+    saleInfo.sold + mintAmount <= saleInfo.cap &&
+    new Date() >= new Date(Number(saleInfo.start) * 1000) &&
+    new Date() <= new Date(Number(saleInfo.end) * 1000)
+
   return (
-    <div className="dashboard">
-      <div className="dashboard-header">
-        <h1>My Tickets</h1>
-        <p>Welcome back, {account.slice(0, 6)}...{account.slice(-4)}</p>
-      </div>
-
-      {loading && (
-        <div className="loading">
-          <p>Loading your tickets...</p>
-        </div>
-      )}
-
-      {error && (
-        <div className="error">
-          <p>{error}</p>
-          <button onClick={loadUserTickets}>Retry</button>
-        </div>
-      )}
-
-      {!loading && !error && (
-        <div className="tickets-grid">
-          {tickets.length === 0 ? (
-            <div className="no-tickets">
-              <h3>No tickets found</h3>
-              <p>You don't have any tickets yet. Check out our events!</p>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Delphi NFT Ticketing</h1>
+          
+          {!isConnected ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600 mb-4">Please connect your wallet to continue</p>
+              <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                Connect Wallet
+              </button>
             </div>
           ) : (
-            tickets.map((ticket) => (
-              <div key={ticket.id} className="ticket-card">
-                <div className="ticket-header">
-                  <h3>{ticket.eventName}</h3>
-                  <span className={`status ${ticket.used ? 'used' : 'active'}`}>
-                    {ticket.used ? 'Used' : 'Active'}
-                  </span>
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Mint Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h2 className="text-xl font-semibold mb-4">Mint Tickets</h2>
                 
-                <div className="ticket-details">
-                  <div className="detail">
-                    <label>Seat:</label>
-                    <span>{ticket.seatNumber}</span>
-                  </div>
-                  <div className="detail">
-                    <label>Date:</label>
-                    <span>{ticket.date}</span>
-                  </div>
-                  <div className="detail">
-                    <label>Location:</label>
-                    <span>{ticket.location}</span>
-                  </div>
+                {/* Event Selection */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Event
+                  </label>
+                  <select
+                    value={selectedEventId}
+                    onChange={(e) => setSelectedEventId(Number(e.target.value))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {events.map(event => (
+                      <option key={event.id} value={event.id}>
+                        {event.name} - {formatEther(event.price)} ETH
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {!ticket.used && (
-                  <div className="ticket-qr">
-                    <img 
-                      src={generateQRCode(ticket.id)} 
-                      alt="Ticket QR Code"
-                      className="qr-code"
-                    />
-                    <p className="qr-note">Show this QR code at the event entrance</p>
+                {/* Selected Event Info */}
+                {saleInfo && (
+                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                    <h3 className="font-semibold text-blue-900">
+                      {events.find(e => e.id === selectedEventId)?.name}
+                    </h3>
+                    <p className="text-sm text-blue-700">
+                      Price: {formatEther(saleInfo.price)} ETH per ticket
+                    </p>
+                    <p className="text-sm text-blue-700">
+                      Available: {Number(saleInfo.cap) - Number(saleInfo.sold)} / {Number(saleInfo.cap)}
+                    </p>
+                    <p className="text-sm text-blue-700">
+                      Status: {saleInfo.active ? 'Active' : 'Inactive'}
+                    </p>
                   </div>
                 )}
 
-                {ticket.used && (
-                  <div className="ticket-used">
-                    <p>This ticket has been used</p>
+                {/* Amount Selection */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Number of Tickets
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={mintAmount}
+                    onChange={(e) => setMintAmount(Number(e.target.value))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Total Cost */}
+                {saleInfo && (
+                  <div className="mb-4 p-3 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-700">
+                      Total Cost: {formatEther(saleInfo.price * BigInt(mintAmount))} ETH
+                    </p>
+                  </div>
+                )}
+
+                {/* Mint Button */}
+                <button
+                  onClick={handleMint}
+                  disabled={!canMint || isPending || isConfirming}
+                  className={`w-full py-3 px-4 rounded-lg font-medium ${
+                    canMint && !isPending && !isConfirming
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {isPending ? 'Confirming...' : isConfirming ? 'Minting...' : 'Mint Tickets'}
+                </button>
+
+                {/* Status Messages */}
+                {error && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700">Error: {error.message}</p>
+                  </div>
+                )}
+
+                {isConfirmed && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-700">Tickets minted successfully!</p>
+                    <p className="text-xs text-green-600">Transaction: {hash}</p>
                   </div>
                 )}
               </div>
-            ))
+
+              {/* My Tickets Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h2 className="text-xl font-semibold mb-4">My Tickets</h2>
+                
+                {isLoadingTickets ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600">Loading tickets...</p>
+                  </div>
+                ) : userTickets.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600">No tickets found</p>
+                    <p className="text-sm text-gray-500">Mint some tickets to see them here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userTickets.map((ticket, index) => (
+                      <div key={index} className="bg-white rounded-lg p-4 border border-gray-200">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{ticket.eventName}</h3>
+                            <p className="text-sm text-gray-600">Seat #{ticket.seatSerial}</p>
+                            <p className="text-sm text-gray-600">Token ID: {ticket.tokenId.toString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              ticket.used 
+                                ? 'bg-red-100 text-red-800' 
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {ticket.used ? 'Used' : 'Valid'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {!ticket.used && (
+                          <div className="mt-3">
+                            <button className="text-blue-600 text-sm hover:text-blue-800">
+                              Generate QR Code
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
-  );
-};
-
-export default Dashboard;
+  )
+}

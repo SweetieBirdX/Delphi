@@ -1,181 +1,169 @@
-import React from 'react';
-import { useWeb3 } from '../utils/web3';
+import Link from 'next/link'
+import { useAccount } from 'wagmi'
 
-const HomePage = () => {
-  const { account, connectWallet, disconnectWallet } = useWeb3();
+export default function Home() {
+  const { isConnected } = useAccount()
 
   return (
-    <div className="home-page">
-      <div className="hero-section">
-        <h1>Delphi NFT Ticketing</h1>
-        <p className="hero-subtitle">
-          High-performance NFT ticketing system on Monad blockchain
-        </p>
-        <p className="hero-description">
-          Experience the future of event ticketing with parallel execution, 
-          anti-bot protection, and hybrid check-in systems.
-        </p>
-        
-        {!account ? (
-          <div className="connect-section">
-            <button 
-              className="btn-primary btn-large"
-              onClick={connectWallet}
-            >
-              Connect Wallet
-            </button>
-            <p className="connect-note">
-              Connect your wallet to start minting tickets
-            </p>
-          </div>
-        ) : (
-          <div className="connected-section">
-            <div className="wallet-info">
-              <p>Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
-              <button 
-                className="btn-secondary"
-                onClick={disconnectWallet}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="max-w-6xl mx-auto px-4 py-16">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">
+            Delphi NFT Ticketing
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            High-performance NFT ticketing system built on Monad blockchain. 
+            Experience lightning-fast transactions and seamless event management.
+          </p>
+          
+          {isConnected ? (
+            <div className="space-x-4">
+              <Link 
+                href="/dashboard"
+                className="inline-block bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-blue-700 transition-colors"
               >
-                Disconnect
+                Go to Dashboard
+              </Link>
+              <Link 
+                href="/organizer"
+                className="inline-block bg-green-600 text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-green-700 transition-colors"
+              >
+                Organizer Panel
+              </Link>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                Connect Your Wallet
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Connect your wallet to start minting tickets and managing events
+              </p>
+              <button className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                Connect Wallet
               </button>
             </div>
+          )}
+        </div>
+
+        {/* Features Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Lightning Fast</h3>
+            <p className="text-gray-600">
+              Built on Monad blockchain for high TPS and low latency transactions
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Secure & Reliable</h3>
+            <p className="text-gray-600">
+              Anti-bot protection and secure check-in system with QR codes
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Easy Management</h3>
+            <p className="text-gray-600">
+              Simple interface for organizers and seamless experience for users
+            </p>
+          </div>
+        </div>
+
+        {/* How It Works Section */}
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">
+            How It Works
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+                1
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Create Event</h3>
+              <p className="text-sm text-gray-600">
+                Organizers create events and set up ticket sales
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+                2
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Mint Tickets</h3>
+              <p className="text-sm text-gray-600">
+                Users mint NFT tickets for their chosen events
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+                3
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">QR Check-in</h3>
+              <p className="text-sm text-gray-600">
+                Generate QR codes and check-in at the event
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+                4
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Enjoy Event</h3>
+              <p className="text-sm text-gray-600">
+                Access your event with verified NFT tickets
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Technical Specs */}
+        <div className="mt-16 bg-gray-900 text-white rounded-lg p-8">
+          <h2 className="text-3xl font-bold text-center mb-8">
+            Technical Specifications
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-xl font-semibold mb-4">Blockchain</h3>
+              <ul className="space-y-2 text-gray-300">
+                <li>• Monad Testnet</li>
+                <li>• EVM Compatible</li>
+                <li>• High TPS Support</li>
+                <li>• Low Latency</li>
+              </ul>
+            </div>
             
-            <div className="quick-actions">
-              <a href="/dashboard" className="btn-primary">
-                View My Tickets
-              </a>
-              <a href="/organizer" className="btn-secondary">
-                Organizer Panel
-              </a>
+            <div>
+              <h3 className="text-xl font-semibold mb-4">Features</h3>
+              <ul className="space-y-2 text-gray-300">
+                <li>• ERC-1155 NFT Standard</li>
+                <li>• Anti-bot Protection</li>
+                <li>• QR Code Check-in</li>
+                <li>• On-chain Metadata</li>
+              </ul>
             </div>
           </div>
-        )}
-      </div>
-
-      <div className="features-section">
-        <h2>Why Choose Delphi?</h2>
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">⚡</div>
-            <h3>Parallel Execution</h3>
-            <p>
-              Leverage Monad's parallel EVM to mint thousands of tickets 
-              simultaneously without gas wars or network congestion.
-            </p>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">🛡️</div>
-            <h3>Anti-Bot Protection</h3>
-            <p>
-              Fair distribution with wallet caps, cooldown periods, and 
-              advanced anti-bot mechanisms to ensure equal access.
-            </p>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">📱</div>
-            <h3>Hybrid Check-in</h3>
-            <p>
-              Online QR scanning with offline EIP-712 permits for 
-              reliable check-in even without internet connection.
-            </p>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">🔒</div>
-            <h3>On-chain Metadata</h3>
-            <p>
-              Fully transparent and decentralized with all ticket 
-              information stored directly on the blockchain.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="performance-section">
-        <h2>Performance Comparison</h2>
-        <div className="comparison-table">
-          <div className="comparison-header">
-            <div className="metric">Metric</div>
-            <div className="ethereum">Ethereum</div>
-            <div className="monad">Monad (Delphi)</div>
-          </div>
-          
-          <div className="comparison-row">
-            <div className="metric">1000 Ticket Mint</div>
-            <div className="ethereum">~120 seconds</div>
-            <div className="monad">~2.3 seconds</div>
-          </div>
-          
-          <div className="comparison-row">
-            <div className="metric">Gas Cost</div>
-            <div className="ethereum">30-50 gwei</div>
-            <div className="monad">&lt;1 gwei</div>
-          </div>
-          
-          <div className="comparison-row">
-            <div className="metric">Transaction Type</div>
-            <div className="ethereum">Serial</div>
-            <div className="monad">Parallel</div>
-          </div>
-          
-          <div className="comparison-row">
-            <div className="metric">Network Congestion</div>
-            <div className="ethereum">High</div>
-            <div className="monad">None</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="getting-started-section">
-        <h2>Getting Started</h2>
-        <div className="steps">
-          <div className="step">
-            <div className="step-number">1</div>
-            <div className="step-content">
-              <h3>Connect Your Wallet</h3>
-              <p>Connect your Web3 wallet to access the platform</p>
-            </div>
-          </div>
-          
-          <div className="step">
-            <div className="step-number">2</div>
-            <div className="step-content">
-              <h3>Browse Events</h3>
-              <p>Discover and explore available events</p>
-            </div>
-          </div>
-          
-          <div className="step">
-            <div className="step-number">3</div>
-            <div className="step-content">
-              <h3>Mint Tickets</h3>
-              <p>Purchase NFT tickets with fast, parallel execution</p>
-            </div>
-          </div>
-          
-          <div className="step">
-            <div className="step-number">4</div>
-            <div className="step-content">
-              <h3>Check-in at Event</h3>
-              <p>Use QR codes or offline permits for seamless entry</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="footer">
-        <p>Built on Monad blockchain • Powered by parallel EVM execution</p>
-        <div className="footer-links">
-          <a href="/dashboard">Dashboard</a>
-          <a href="/organizer">Organizer</a>
-          <a href="/scanner">QR Scanner</a>
-          <a href="/sync">Offline Sync</a>
         </div>
       </div>
     </div>
-  );
-};
-
-export default HomePage;
+  )
+}
