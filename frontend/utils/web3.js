@@ -1,6 +1,6 @@
 import { createConfig, http } from 'wagmi'
 import { mainnet, sepolia } from 'wagmi/chains'
-import { injected, metaMask, walletConnect } from 'wagmi/connectors'
+import { injected, metaMask } from 'wagmi/connectors'
 import { createPublicClient, createWalletClient, custom } from 'viem'
 
 // Monad chain configuration
@@ -36,9 +36,6 @@ export const config = createConfig({
   connectors: [
     injected(),
     metaMask(),
-    walletConnect({
-      projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'your-project-id',
-    }),
   ],
   transports: {
     [monad.id]: http(),
@@ -53,11 +50,11 @@ export const publicClient = createPublicClient({
   transport: http(process.env.NEXT_PUBLIC_MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz'),
 })
 
-// Wallet client for write operations
-export const walletClient = createWalletClient({
+// Wallet client for write operations (only in browser)
+export const walletClient = typeof window !== 'undefined' ? createWalletClient({
   chain: monad,
   transport: custom(window.ethereum),
-})
+}) : null
 
 // Contract addresses
 export const CONTRACT_ADDRESSES = {

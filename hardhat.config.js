@@ -2,6 +2,12 @@ require("@nomicfoundation/hardhat-toolbox");
 require("hardhat-gas-reporter");
 require("dotenv").config();
 
+// Debug environment variables
+console.log("🔍 Environment check:");
+console.log("MONAD_RPC_URL:", process.env.MONAD_RPC_URL);
+console.log("MONAD_CHAIN_ID:", process.env.MONAD_CHAIN_ID);
+console.log("PRIVATE_KEY:", process.env.PRIVATE_KEY ? "✅ Set" : "❌ Not set");
+
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
@@ -25,7 +31,7 @@ module.exports = {
     monad: {
       url: process.env.MONAD_RPC_URL || "https://testnet-rpc.monad.xyz",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: Number(process.env.CHAIN_ID_MONAD) || 1234,
+      chainId: Number(process.env.MONAD_CHAIN_ID) || 10143,
     },
     sepolia: {
       url: process.env.ETH_RPC_URL || "https://sepolia.infura.io/v3/YOUR_INFURA_KEY",

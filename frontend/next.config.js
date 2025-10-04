@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   env: {
     NEXT_PUBLIC_MONAD_RPC_URL: process.env.NEXT_PUBLIC_MONAD_RPC_URL,
     NEXT_PUBLIC_MONAD_CHAIN_ID: process.env.NEXT_PUBLIC_MONAD_CHAIN_ID,
@@ -17,6 +16,7 @@ const nextConfig = {
     }
     return config
   },
+  outputFileTracingRoot: process.cwd(),
 }
 
 module.exports = nextConfig

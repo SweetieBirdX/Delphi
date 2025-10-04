@@ -1,4 +1,5 @@
 const { ethers } = require("hardhat");
+const hre = require("hardhat");
 
 async function main() {
   console.log("🚀 Starting Delphi NFT Ticketing System deployment...");
@@ -8,7 +9,12 @@ async function main() {
   const SaleManager = await ethers.getContractFactory("SaleManager");
   
   // Get the deployer account
-  const [deployer] = await ethers.getSigners();
+  const signers = await ethers.getSigners();
+  console.log("🔍 Available signers:", signers.length);
+  if (signers.length === 0) {
+    throw new Error("No signers available. Check your private key in .env file.");
+  }
+  const [deployer] = signers;
   console.log("📝 Deploying contracts with account:", deployer.address);
   console.log("💰 Account balance:", ethers.formatEther(await deployer.provider.getBalance(deployer.address)), "ETH");
   
@@ -69,7 +75,9 @@ async function main() {
     salePrice,
     saleCap,
     saleStartTime,
-    saleEndTime
+    saleEndTime,
+    5, // perWalletCap
+    1  // cooldownBlocks
   );
   console.log("✅ Sample sale created:", {
     price: ethers.formatEther(salePrice),

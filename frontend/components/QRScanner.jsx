@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { CONTRACT_ADDRESSES, SALE_MANAGER_ABI, formatTokenId, parseTokenId } from '../utils/web3'
-import QRCode from 'qrcode.react'
+import { QRCodeSVG } from 'qrcode.react'
 
 export default function QRScanner() {
   const { address, isConnected } = useAccount()
@@ -115,7 +115,7 @@ export default function QRScanner() {
                   {qrData && (
                     <div className="text-center">
                       <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block">
-                        <QRCode
+                        <QRCodeSVG
                           value={qrData}
                           size={256}
                           level="M"
