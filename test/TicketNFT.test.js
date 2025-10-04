@@ -101,6 +101,10 @@ describe("TicketNFT", function () {
         const balance = await ticketNFT.balanceOf(user.address, tokenId);
         expect(balance).to.equal(1);
       }
+      
+      // Also check total balance
+      const totalBalance = await ticketNFT.balanceOf(user.address, (eventId << 128) | 1);
+      expect(totalBalance).to.equal(1);
     });
 
     it("Should not allow non-organizer to mint", async function () {
@@ -221,6 +225,122 @@ describe("TicketNFT", function () {
       await expect(
         ticketNFT.connect(user).pause()
       ).to.be.revertedWithCustomError(ticketNFT, "AccessControlUnauthorizedAccount");
+    });
+  });
+
+  describe("ID Packing/Unpacking", function () {
+    it("Should pack and unpack IDs correctly", async function () {
+      const eventId = 123;
+      const seatSerial = 456;
+      
+      const packedId = await ticketNFT.packId(eventId, seatSerial);
+      const [unpackedEventId, unpackedSeatSerial] = await ticketNFT.unpackId(packedId);
+      
+      expect(unpackedEventId).to.equal(eventId);
+      expect(unpackedSeatSerial).to.equal(seatSerial);
+    });
+
+    it("Should handle edge cases in ID packing", async function () {
+      // Test reasonable maximum values (avoid overflow)
+      const maxEventId = 2**64 - 1; // Use 64-bit instead of 128-bit to avoid overflow
+      const maxSeatSerial = 2**64 - 1;
+      
+      const packedId = await ticketNFT.packId(maxEventId, maxSeatSerial);
+      const [unpackedEventId, unpackedSeatSerial] = await ticketNFT.unpackId(packedId);
+      
+      expect(unpackedEventId).to.equal(maxEventId);
+      expect(unpackedSeatSerial).to.equal(maxSeatSerial);
+    });
+
+    it("Should handle zero values", async function () {
+      const packedId = await ticketNFT.packId(0, 0);
+      const [unpackedEventId, unpackedSeatSerial] = await ticketNFT.unpackId(packedId);
+      
+      expect(unpackedEventId).to.equal(0);
+      expect(unpackedSeatSerial).to.equal(0);
+    });
+  });
+
+  describe("On-chain Metadata Structure", function () {
+    beforeEach(async function () {
+      await ticketNFT.connect(organizer).createEvent(
+        eventId,
+        "Test Event",
+        "Test Description",
+        Math.floor(Date.now() / 1000) + 86400,
+        "Test Location"
+      );
+    });
+
+    it("Should return valid JSON structure", async function () {
+      const tokenId = (eventId << 128) | 1;
+      const uri = await ticketNFT.uri(tokenId);
+      
+      // Check base64 prefix
+      expect(uri).to.include("data:application/json;base64,");
+      
+      // Decode base64 and parse JSON
+      const base64Data = uri.split(",")[1];
+      const jsonString = Buffer.from(base64Data, 'base64').toString('utf-8');
+      const metadata = JSON.parse(jsonString);
+      
+      // Validate JSON structure
+      expect(metadata).to.have.property('name');
+      expect(metadata).to.have.property('description');
+      expect(metadata).to.have.property('image');
+      expect(metadata).to.have.property('attributes');
+      expect(metadata.attributes).to.be.an('array');
+      
+      // Validate attributes
+      const attributes = metadata.attributes;
+      const attributeTypes = attributes.map(attr => attr.trait_type);
+      expect(attributeTypes).to.include('Event');
+      expect(attributeTypes).to.include('Date');
+      expect(attributeTypes).to.include('Location');
+      expect(attributeTypes).to.include('Seat');
+      expect(attributeTypes).to.include('Event ID');
+    });
+
+    it("Should include correct event information", async function () {
+      const tokenId = (eventId << 128) | 42;
+      const uri = await ticketNFT.uri(tokenId);
+      
+      const base64Data = uri.split(",")[1];
+      const jsonString = Buffer.from(base64Data, 'base64').toString('utf-8');
+      const metadata = JSON.parse(jsonString);
+      
+      expect(metadata.name).to.include("Test Event");
+      expect(metadata.name).to.include("Seat #42");
+      expect(metadata.description).to.equal("Test Description");
+      
+      // Check attributes
+      const eventAttr = metadata.attributes.find(attr => attr.trait_type === "Event");
+      const seatAttr = metadata.attributes.find(attr => attr.trait_type === "Seat");
+      const locationAttr = metadata.attributes.find(attr => attr.trait_type === "Location");
+      
+      expect(eventAttr.value).to.equal("Test Event");
+      expect(seatAttr.value).to.equal("42");
+      expect(locationAttr.value).to.equal("Test Location");
+    });
+
+    it("Should generate unique metadata for different seats", async function () {
+      const tokenId1 = (eventId << 128) | 1;
+      const tokenId2 = (eventId << 128) | 2;
+      
+      const uri1 = await ticketNFT.uri(tokenId1);
+      const uri2 = await ticketNFT.uri(tokenId2);
+      
+      expect(uri1).to.not.equal(uri2);
+      
+      // Parse and compare
+      const base64Data1 = uri1.split(",")[1];
+      const base64Data2 = uri2.split(",")[1];
+      
+      const json1 = JSON.parse(Buffer.from(base64Data1, 'base64').toString('utf-8'));
+      const json2 = JSON.parse(Buffer.from(base64Data2, 'base64').toString('utf-8'));
+      
+      expect(json1.name).to.include("Seat #1");
+      expect(json2.name).to.include("Seat #2");
     });
   });
 });

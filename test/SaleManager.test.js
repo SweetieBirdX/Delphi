@@ -420,4 +420,214 @@ describe("SaleManager", function () {
       expect(reason).to.equal("Exceeds wallet cap");
     });
   });
+
+  describe("Advanced Anti-bot Protection", function () {
+    beforeEach(async function () {
+      const startTime = Math.floor(Date.now() / 1000) - 3600;
+      const endTime = Math.floor(Date.now() / 1000) + 86400;
+      
+      await saleManager.connect(owner).createSale(
+        eventId,
+        salePrice,
+        saleCap,
+        startTime,
+        endTime,
+        3, // perWalletCap
+        2  // cooldownBlocks
+      );
+    });
+
+    it("Should enforce strict wallet cap", async function () {
+      // First purchase - should succeed
+      await saleManager.connect(user1).mint(eventId, 3, { value: salePrice * 3n });
+      
+      // Second purchase - should fail
+      await expect(
+        saleManager.connect(user1).mint(eventId, 1, { value: salePrice })
+      ).to.be.revertedWith("Exceeds wallet cap");
+    });
+
+    it("Should enforce cooldown across multiple users", async function () {
+      // User1 mints
+      await saleManager.connect(user1).mint(eventId, 1, { value: salePrice });
+      
+      // User2 mints immediately - should succeed (different user)
+      await saleManager.connect(user2).mint(eventId, 1, { value: salePrice });
+      
+      // User1 tries to mint again - should fail (cooldown)
+      await expect(
+        saleManager.connect(user1).mint(eventId, 1, { value: salePrice })
+      ).to.be.revertedWith("Cooldown period not passed");
+    });
+
+    it("Should allow minting after cooldown period", async function () {
+      // First mint
+      await saleManager.connect(user1).mint(eventId, 1, { value: salePrice });
+      
+      // Mine blocks to pass cooldown
+      await ethers.provider.send("evm_mine");
+      await ethers.provider.send("evm_mine");
+      
+      // Should succeed now
+      await saleManager.connect(user1).mint(eventId, 1, { value: salePrice });
+    });
+
+    it("Should track minting history correctly", async function () {
+      // Check initial state
+      expect(await saleManager.mintedBy(eventId, user1.address)).to.equal(0);
+      expect(await saleManager.lastMintBlock(eventId, user1.address)).to.equal(0);
+      
+      // First mint
+      await saleManager.connect(user1).mint(eventId, 2, { value: salePrice * 2n });
+      
+      // Check updated state
+      expect(await saleManager.mintedBy(eventId, user1.address)).to.equal(2);
+      expect(await saleManager.lastMintBlock(eventId, user1.address)).to.be.gt(0);
+    });
+  });
+
+  describe("Check-in Behavior", function () {
+    beforeEach(async function () {
+      const startTime = Math.floor(Date.now() / 1000) - 3600;
+      const endTime = Math.floor(Date.now() / 1000) + 86400;
+      
+      await saleManager.connect(owner).createSale(
+        eventId,
+        salePrice,
+        saleCap,
+        startTime,
+        endTime,
+        5,
+        1
+      );
+      
+      // Purchase a ticket
+      await saleManager.connect(user1).mint(eventId, 1, { value: salePrice });
+    });
+
+    it("Should check-in valid ticket successfully", async function () {
+      const tokenId = (eventId << 128) | 1;
+      
+      await expect(
+        saleManager.connect(verifier).checkIn(tokenId)
+      ).to.emit(saleManager, "CheckedIn")
+        .withArgs(tokenId, verifier.address);
+    });
+
+    it("Should prevent double check-in", async function () {
+      const tokenId = (eventId << 128) | 1;
+      
+      // First check-in should succeed
+      await saleManager.connect(verifier).checkIn(tokenId);
+      
+      // Second check-in should fail
+      await expect(
+        saleManager.connect(verifier).checkIn(tokenId)
+      ).to.be.revertedWith("Ticket already used");
+    });
+
+    it("Should handle multiple tickets check-in", async function () {
+      // Purchase more tickets
+      await saleManager.connect(user1).mint(eventId, 2, { value: salePrice * 2n });
+      
+      const tokenId1 = (eventId << 128) | 1;
+      const tokenId2 = (eventId << 128) | 2;
+      const tokenId3 = (eventId << 128) | 3;
+      
+      // Check-in all tickets
+      await saleManager.connect(verifier).checkIn(tokenId1);
+      await saleManager.connect(verifier).checkIn(tokenId2);
+      await saleManager.connect(verifier).checkIn(tokenId3);
+      
+      // All should be marked as used
+      expect(await ticketNFT.usedTickets(eventId, 1)).to.be.true;
+      expect(await ticketNFT.usedTickets(eventId, 2)).to.be.true;
+      expect(await ticketNFT.usedTickets(eventId, 3)).to.be.true;
+    });
+
+    it("Should not allow check-in of non-existent ticket", async function () {
+      const nonExistentTokenId = (eventId << 128) | 999;
+      
+      await expect(
+        saleManager.connect(verifier).checkIn(nonExistentTokenId)
+      ).to.be.revertedWith("Ticket already used");
+    });
+  });
+
+  describe("Sale Parameter Validation", function () {
+    it("Should create sale with valid parameters", async function () {
+      const startTime = Math.floor(Date.now() / 1000) + 3600;
+      const endTime = Math.floor(Date.now() / 1000) + 86400;
+      
+      await expect(
+        saleManager.connect(owner).createSale(
+          eventId,
+          salePrice,
+          saleCap,
+          startTime,
+          endTime,
+          5,
+          1
+        )
+      ).to.emit(saleManager, "SaleCreated")
+        .withArgs(eventId, salePrice, saleCap, startTime, endTime);
+    });
+
+    it("Should reject invalid sale parameters", async function () {
+      const startTime = Math.floor(Date.now() / 1000) + 3600;
+      const endTime = Math.floor(Date.now() / 1000) + 86400;
+      
+      // Invalid price
+      await expect(
+        saleManager.connect(owner).createSale(
+          eventId,
+          0,
+          saleCap,
+          startTime,
+          endTime,
+          5,
+          1
+        )
+      ).to.be.revertedWith("Price must be greater than 0");
+      
+      // Invalid cap
+      await expect(
+        saleManager.connect(owner).createSale(
+          eventId,
+          salePrice,
+          0,
+          startTime,
+          endTime,
+          5,
+          1
+        )
+      ).to.be.revertedWith("Cap must be greater than 0");
+      
+      // Invalid time range
+      await expect(
+        saleManager.connect(owner).createSale(
+          eventId,
+          salePrice,
+          saleCap,
+          endTime,
+          startTime,
+          5,
+          1
+        )
+      ).to.be.revertedWith("Invalid time range");
+      
+      // Invalid wallet cap
+      await expect(
+        saleManager.connect(owner).createSale(
+          eventId,
+          salePrice,
+          saleCap,
+          startTime,
+          endTime,
+          0,
+          1
+        )
+      ).to.be.revertedWith("Invalid wallet cap");
+    });
+  });
 });
