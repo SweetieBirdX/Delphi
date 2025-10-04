@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { CONTRACT_ADDRESSES, SALE_MANAGER_ABI, formatTokenId, parseTokenId } from '../utils/web3'
 import { QRCodeSVG } from 'qrcode.react'
 
 export default function QRScanner() {
+  const router = useRouter()
   const { address, isConnected } = useAccount()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
@@ -17,6 +19,7 @@ export default function QRScanner() {
   const [scannedData, setScannedData] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [checkInResult, setCheckInResult] = useState(null)
+  const [ticketInfo, setTicketInfo] = useState(null)
 
   // Generate QR code for a ticket
   const generateQRCode = (tokenId, eventId, seatSerial) => {
@@ -31,12 +34,32 @@ export default function QRScanner() {
     setQrData(JSON.stringify(qrData))
   }
 
-  // Simulate QR code generation for demo
+  // Load ticket info from URL parameters
+  useEffect(() => {
+    if (router.isReady) {
+      const { tokenId, eventId, seatSerial } = router.query
+      if (tokenId && eventId && seatSerial) {
+        setTicketInfo({
+          tokenId: tokenId.toString(),
+          eventId: parseInt(eventId),
+          seatSerial: parseInt(seatSerial)
+        })
+        generateQRCode(tokenId, parseInt(eventId), parseInt(seatSerial))
+      }
+    }
+  }, [router.isReady, router.query])
+
+  // Generate QR code for a ticket
   const handleGenerateQR = () => {
-    const eventId = 1
-    const seatSerial = 1
-    const tokenId = formatTokenId(eventId, seatSerial)
-    generateQRCode(tokenId, eventId, seatSerial)
+    if (ticketInfo) {
+      generateQRCode(ticketInfo.tokenId, ticketInfo.eventId, ticketInfo.seatSerial)
+    } else {
+      // Fallback for demo
+      const eventId = 1
+      const seatSerial = 1
+      const tokenId = formatTokenId(eventId, seatSerial)
+      generateQRCode(tokenId, eventId, seatSerial)
+    }
   }
 
   // Simulate QR code scanning
@@ -86,15 +109,15 @@ export default function QRScanner() {
   const parsedData = scannedData ? JSON.parse(scannedData) : null
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-900 text-white py-8">
       <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">QR Code Scanner</h1>
+        <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+          <h1 className="text-3xl font-bold text-white mb-6">QR Code Scanner</h1>
           
           {!isConnected ? (
             <div className="text-center py-8">
-              <p className="text-gray-600 mb-4">Please connect your wallet to continue</p>
-              <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+              <p className="text-gray-400 mb-4">Please connect your wallet to continue</p>
+              <button className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
                 Connect Wallet
               </button>
             </div>
@@ -104,12 +127,22 @@ export default function QRScanner() {
               <div className="bg-gray-50 rounded-lg p-6">
                 <h2 className="text-xl font-semibold mb-4">Generate QR Code</h2>
                 
+                {/* Ticket Info */}
+                {ticketInfo && (
+                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                    <h3 className="font-semibold text-blue-900 mb-2">Ticket Information</h3>
+                    <p className="text-sm text-blue-700">Token ID: {ticketInfo.tokenId}</p>
+                    <p className="text-sm text-blue-700">Event ID: {ticketInfo.eventId}</p>
+                    <p className="text-sm text-blue-700">Seat Serial: {ticketInfo.seatSerial}</p>
+                  </div>
+                )}
+                
                 <div className="space-y-4">
                   <button
                     onClick={handleGenerateQR}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
+                    className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700"
                   >
-                    Generate Demo QR Code
+                    {ticketInfo ? 'Generate QR Code' : 'Generate Demo QR Code'}
                   </button>
                   
                   {qrData && (
@@ -122,7 +155,7 @@ export default function QRScanner() {
                           includeMargin={true}
                         />
                       </div>
-                      <p className="text-sm text-gray-600 mt-2">
+                      <p className="text-sm text-gray-400 mt-2">
                         Scan this QR code to test check-in
                       </p>
                     </div>
@@ -152,19 +185,19 @@ export default function QRScanner() {
                       <h3 className="font-semibold text-gray-900 mb-2">Scanned Data:</h3>
                       <div className="space-y-2 text-sm">
                         <div>
-                          <span className="text-gray-600">Token ID:</span>
+                          <span className="text-gray-400">Token ID:</span>
                           <span className="ml-2 font-mono">{parsedData?.tokenId}</span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Event ID:</span>
+                          <span className="text-gray-400">Event ID:</span>
                           <span className="ml-2">{parsedData?.eventId}</span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Seat Serial:</span>
+                          <span className="text-gray-400">Seat Serial:</span>
                           <span className="ml-2">{parsedData?.seatSerial}</span>
                         </div>
                         <div>
-                          <span className="text-gray-600">Timestamp:</span>
+                          <span className="text-gray-400">Timestamp:</span>
                           <span className="ml-2">
                             {parsedData?.timestamp ? new Date(parsedData.timestamp).toLocaleString() : 'N/A'}
                           </span>

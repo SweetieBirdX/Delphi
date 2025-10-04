@@ -5,7 +5,7 @@ import { createPublicClient, createWalletClient, custom } from 'viem'
 
 // Monad chain configuration
 const monad = {
-  id: parseInt(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID || '1234'),
+  id: parseInt(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID || '10143'),
   name: 'Monad Testnet',
   network: 'monad',
   nativeCurrency: {
@@ -62,7 +62,7 @@ export const CONTRACT_ADDRESSES = {
   SALE_MANAGER: process.env.NEXT_PUBLIC_SALE_MANAGER_ADDRESS || '',
 }
 
-// Contract ABIs (simplified for now)
+// Contract ABIs
 export const TICKET_NFT_ABI = [
   {
     "inputs": [{"name": "id", "type": "uint256"}],
@@ -90,10 +90,65 @@ export const TICKET_NFT_ABI = [
     "outputs": [{"name": "", "type": "uint256[]"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "eventId", "type": "uint256"},
+      {"name": "name", "type": "string"},
+      {"name": "description", "type": "string"},
+      {"name": "date", "type": "uint256"},
+      {"name": "location", "type": "string"}
+    ],
+    "name": "createEvent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "tokenId", "type": "uint256"}],
+    "name": "checkIn",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "eventId", "type": "uint128"},
+      {"name": "seatSerial", "type": "uint128"}
+    ],
+    "name": "packId",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "tokenId", "type": "uint256"}],
+    "name": "unpackId",
+    "outputs": [
+      {"name": "eventId", "type": "uint128"},
+      {"name": "seatSerial", "type": "uint128"}
+    ],
+    "stateMutability": "pure",
+    "type": "function"
   }
 ]
 
 export const SALE_MANAGER_ABI = [
+  {
+    "inputs": [
+      {"name": "eventId", "type": "uint256"},
+      {"name": "price", "type": "uint256"},
+      {"name": "cap", "type": "uint256"},
+      {"name": "start", "type": "uint64"},
+      {"name": "end", "type": "uint64"},
+      {"name": "perWalletCap", "type": "uint32"},
+      {"name": "cooldownBlocks", "type": "uint32"}
+    ],
+    "name": "createSale",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
   {
     "inputs": [
       {"name": "eventId", "type": "uint256"},
@@ -107,6 +162,13 @@ export const SALE_MANAGER_ABI = [
   {
     "inputs": [{"name": "tokenId", "type": "uint256"}],
     "name": "checkIn",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "to", "type": "address"}],
+    "name": "withdrawProceeds",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -146,6 +208,16 @@ export const SALE_MANAGER_ABI = [
       {"name": "reason", "type": "string"}
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "eventId", "type": "uint256"},
+      {"name": "tokenId", "type": "uint256"}
+    ],
+    "name": "refund",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ]

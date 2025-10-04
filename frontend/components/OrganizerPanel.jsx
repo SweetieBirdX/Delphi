@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect } from 'wagmi'
 import { CONTRACT_ADDRESSES, SALE_MANAGER_ABI, parseEther, formatEther } from '../utils/web3'
 
 export default function OrganizerPanel() {
   const { address, isConnected } = useAccount()
+  const { connect, connectors, isPending: isConnecting } = useConnect()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash,
@@ -102,16 +103,20 @@ export default function OrganizerPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-900 text-white py-8">
       <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Organizer Panel</h1>
+        <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+          <h1 className="text-3xl font-bold text-white mb-6">Organizer Panel</h1>
           
           {!isConnected ? (
             <div className="text-center py-8">
-              <p className="text-gray-600 mb-4">Please connect your wallet to continue</p>
-              <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
-                Connect Wallet
+              <p className="text-gray-400 mb-4">Please connect your wallet to continue</p>
+              <button 
+                onClick={() => connect({ connector: connectors[0] })}
+                disabled={isConnecting}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400"
+              >
+                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
             </div>
           ) : (
