@@ -57,7 +57,7 @@ describe("TicketNFT", function () {
           Math.floor(Date.now() / 1000) + 86400,
           "Location"
         )
-      ).to.be.revertedWith("AccessControl: account " + user.address.toLowerCase() + " is missing role " + await ticketNFT.ORGANIZER_ROLE());
+      ).to.be.revertedWithCustomError(ticketNFT, "AccessControlUnauthorizedAccount");
     });
 
     it("Should not allow creating duplicate event", async function () {
@@ -106,7 +106,7 @@ describe("TicketNFT", function () {
     it("Should not allow non-organizer to mint", async function () {
       await expect(
         ticketNFT.connect(user).mintTo(user.address, eventId, seatSerials)
-      ).to.be.revertedWith("AccessControl: account " + user.address.toLowerCase() + " is missing role " + await ticketNFT.ORGANIZER_ROLE());
+      ).to.be.revertedWithCustomError(ticketNFT, "AccessControlUnauthorizedAccount");
     });
 
     it("Should not mint for non-existent event", async function () {
@@ -137,6 +137,9 @@ describe("TicketNFT", function () {
     });
 
     it("Should check-in ticket", async function () {
+      // First mint ticket to verifier
+      await ticketNFT.connect(organizer).mintTo(verifier.address, eventId, [seatSerials[0]]);
+      
       const tokenId = (eventId << 128) | seatSerials[0];
       
       await ticketNFT.connect(verifier).checkIn(tokenId);
@@ -150,7 +153,7 @@ describe("TicketNFT", function () {
       
       await expect(
         ticketNFT.connect(user).checkIn(tokenId)
-      ).to.be.revertedWith("AccessControl: account " + user.address.toLowerCase() + " is missing role " + await ticketNFT.VERIFIER_ROLE());
+      ).to.be.revertedWithCustomError(ticketNFT, "AccessControlUnauthorizedAccount");
     });
 
     it("Should not check-in non-owned ticket", async function () {
@@ -162,6 +165,9 @@ describe("TicketNFT", function () {
     });
 
     it("Should not check-in already used ticket", async function () {
+      // First mint ticket to verifier
+      await ticketNFT.connect(organizer).mintTo(verifier.address, eventId, [seatSerials[0]]);
+      
       const tokenId = (eventId << 128) | seatSerials[0];
       
       await ticketNFT.connect(verifier).checkIn(tokenId);
@@ -214,7 +220,7 @@ describe("TicketNFT", function () {
     it("Should not allow non-admin to pause", async function () {
       await expect(
         ticketNFT.connect(user).pause()
-      ).to.be.revertedWith("AccessControl: account " + user.address.toLowerCase() + " is missing role " + await ticketNFT.DEFAULT_ADMIN_ROLE());
+      ).to.be.revertedWithCustomError(ticketNFT, "AccessControlUnauthorizedAccount");
     });
   });
 });

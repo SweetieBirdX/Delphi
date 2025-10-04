@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @title TicketNFT
  * @dev ERC-1155 based NFT ticketing system for Monad blockchain
  * @notice Each ticket is represented as an NFT with unique seat serials
+ * @notice tokenId = (eventId << 128) | seatSerial
  */
 contract TicketNFT is ERC1155, AccessControl, Pausable, ReentrancyGuard {
     // Role definitions
@@ -25,6 +26,10 @@ contract TicketNFT is ERC1155, AccessControl, Pausable, ReentrancyGuard {
         bool active;
     }
     
+    // On-chain metadata storage
+    mapping(uint256 => string) private _eventNames;
+    mapping(uint256 => bytes) private _metadataBlobs;
+    
     // State variables
     mapping(uint256 => EventInfo) public events;
     mapping(uint256 => mapping(uint256 => bool)) public usedTickets;
@@ -32,12 +37,33 @@ contract TicketNFT is ERC1155, AccessControl, Pausable, ReentrancyGuard {
     
     // Events
     event EventCreated(uint256 indexed eventId, string name, uint256 date);
-    event TicketMinted(address indexed to, uint256 indexed eventId, uint256[] serials);
+    event Minted(uint256 indexed eventId, uint256 indexed seatSerial, address indexed to);
     event TicketUsed(uint256 indexed tokenId, address indexed user);
     
     constructor() ERC1155("") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ORGANIZER_ROLE, msg.sender);
+    }
+    
+    /**
+     * @dev Pack eventId and seatSerial into tokenId
+     * @param eventId Event identifier (128 bits)
+     * @param seatSerial Seat serial number (128 bits)
+     * @return tokenId Packed token identifier
+     */
+    function packId(uint128 eventId, uint128 seatSerial) public pure returns (uint256) {
+        return (uint256(eventId) << 128) | uint256(seatSerial);
+    }
+    
+    /**
+     * @dev Unpack tokenId into eventId and seatSerial
+     * @param tokenId Packed token identifier
+     * @return eventId Event identifier
+     * @return seatSerial Seat serial number
+     */
+    function unpackId(uint256 tokenId) public pure returns (uint128 eventId, uint128 seatSerial) {
+        eventId = uint128(tokenId >> 128);
+        seatSerial = uint128(tokenId & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF);
     }
     
     /**
@@ -87,15 +113,17 @@ contract TicketNFT is ERC1155, AccessControl, Pausable, ReentrancyGuard {
         
         for (uint256 i = 0; i < serials.length; i++) {
             require(serials[i] > 0, "Invalid serial number");
-            uint256 tokenId = (eventId << 128) | serials[i];
+            uint256 tokenId = packId(uint128(eventId), uint128(serials[i]));
             tokenIds[i] = tokenId;
             amounts[i] = 1;
+            
+            // Emit individual mint event
+            emit Minted(eventId, serials[i], to);
         }
         
         _mintBatch(to, tokenIds, amounts, "");
         
         eventTicketCount[eventId] += serials.length;
-        emit TicketMinted(to, eventId, serials);
     }
     
     /**
@@ -103,10 +131,11 @@ contract TicketNFT is ERC1155, AccessControl, Pausable, ReentrancyGuard {
      * @param tokenId Token identifier
      */
     function checkIn(uint256 tokenId) external onlyRole(VERIFIER_ROLE) {
-        require(balanceOf(msg.sender, tokenId) > 0, "Ticket not owned");
-        require(!usedTickets[tokenId >> 128][tokenId & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF], "Ticket already used");
+        (uint128 eventId, uint128 seatSerial) = unpackId(tokenId);
         
-        usedTickets[tokenId >> 128][tokenId & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF] = true;
+        require(!usedTickets[eventId][seatSerial], "Ticket already used");
+        
+        usedTickets[eventId][seatSerial] = true;
         emit TicketUsed(tokenId, msg.sender);
     }
     
@@ -116,30 +145,36 @@ contract TicketNFT is ERC1155, AccessControl, Pausable, ReentrancyGuard {
      * @return JSON metadata string
      */
     function uri(uint256 id) public view override returns (string memory) {
-        uint256 eventId = id >> 128;
-        uint256 seatSerial = id & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+        (uint128 eventId, uint128 seatSerial) = unpackId(id);
         
         require(events[eventId].active, "Event does not exist");
         
+        // Generate on-chain JSON metadata
+        string memory json = string(abi.encodePacked(
+            '{"name":"',
+            events[eventId].name,
+            ' - Seat #',
+            _uint2str(seatSerial),
+            '","description":"',
+            events[eventId].description,
+            '","image":"data:image/svg+xml;base64,',
+            _generateSVG(eventId, seatSerial),
+            '","attributes":[{"trait_type":"Event","value":"',
+            events[eventId].name,
+            '"},{"trait_type":"Date","value":"',
+            _uint2str(events[eventId].date),
+            '"},{"trait_type":"Location","value":"',
+            events[eventId].location,
+            '"},{"trait_type":"Seat","value":"',
+            _uint2str(seatSerial),
+            '"},{"trait_type":"Event ID","value":"',
+            _uint2str(eventId),
+            '"}]}'
+        ));
+        
         return string(abi.encodePacked(
             'data:application/json;base64,',
-            _encodeBase64(abi.encodePacked(
-                '{"name":"',
-                events[eventId].name,
-                '","description":"',
-                events[eventId].description,
-                '","image":"data:image/svg+xml;base64,',
-                _generateSVG(eventId, seatSerial),
-                '","attributes":[{"trait_type":"Event","value":"',
-                events[eventId].name,
-                '"},{"trait_type":"Date","value":"',
-                _uint2str(events[eventId].date),
-                '"},{"trait_type":"Location","value":"',
-                events[eventId].location,
-                '"},{"trait_type":"Seat","value":"',
-                _uint2str(seatSerial),
-                '"}]}'
-            ))
+            _encodeBase64(bytes(json))
         ));
     }
     
